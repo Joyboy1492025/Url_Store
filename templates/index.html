@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vault | URL Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Draggable Logic Library -->
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = { darkMode: 'class' }
+    </script>
+    <style>
+        body { 
+            background: radial-gradient(circle at top right, #f8fafc, #e2e8f0); 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
+            min-height: 100vh;
+            transition: background 0.3s ease;
+        }
+        .dark body { background: radial-gradient(circle at top right, #0f172a, #020617); }
+        
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .dark .glass {
+            background: rgba(30, 41, 59, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            color: white;
+        }
+        
+        .floating-panel {
+            transform: translateX(110%);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .floating-panel.open { transform: translateX(0); }
+
+        /* Draggable visual feedback */
+        .sortable-ghost { opacity: 0.2; background: #3b82f6 !important; }
+        .drag-handle { cursor: grab; }
+        .drag-handle:active { cursor: grabbing; }
+    </style>
+</head>
+<body class="antialiased text-slate-900 dark:text-slate-100 pb-10">
+
+    <div class="max-w-4xl mx-auto py-8 px-4">
+        <!-- Header -->
+        <header class="flex items-center justify-between mb-10 gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-1.5 rounded-lg shadow-lg shadow-blue-200 dark:shadow-none">
+                    <i data-lucide="shield-check" class="text-white w-5 h-5"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-tight">Vault</h1>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <div class="relative group hidden sm:block">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                    <input type="text" id="searchInput" onkeyup="filterLinks()" placeholder="Search..." 
+                        class="pl-9 pr-4 py-2 bg-white/50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition w-48 text-sm">
+                </div>
+                <button onclick="toggleDarkMode()" class="p-2 rounded-xl glass hover:bg-white dark:hover:bg-slate-700 transition">
+                    <i data-lucide="moon" id="darkIcon" class="w-5 h-5"></i>
+                </button>
+                <button onclick="togglePanel('add-panel')" class="bg-slate-900 dark:bg-blue-600 text-white p-2 rounded-xl shadow-lg transition-transform active:scale-95">
+                    <i data-lucide="plus" class="w-5 h-5"></i>
+                </button>
+            </div>
+        </header>
+
+        <!-- Draggable Grid -->
+        <div id="linksGrid" class="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {% for b in bookmarks %}
+            <div class="bookmark-item glass p-3 rounded-2xl flex items-center justify-between group" data-id="{{ b.id }}" data-name="{{ b.name|lower }}" data-url="{{ b.url|lower }}">
+                
+                <div class="flex items-center gap-3 overflow-hidden">
+                    <!-- Grip Handle -->
+                    <div class="drag-handle text-slate-300 dark:text-slate-600 hover:text-slate-500 transition-colors">
+                        <i data-lucide="grip-vertical" class="w-4 h-4"></i>
+                    </div>
+
+                    <!-- Icon -->
+                    <div class="w-9 h-9 bg-white dark:bg-slate-700 rounded-xl flex items-center justify-center shadow-sm border border-slate-100 dark:border-slate-600 shrink-0">
+                        <img src="https://www.google.com/s2/favicons?sz=64&domain={{ b.url }}" class="w-5 h-5">
+                    </div>
+
+                    <div class="truncate">
+                        <h3 class="font-bold text-sm truncate text-slate-800 dark:text-white">{{ b.name }}</h3>
+                        <p class="text-[11px] text-slate-400 truncate">
+                             <a href="{{ b.url }}" target="_blank" class="hover:text-blue-500 transition-colors">{{ b.url }}</a>
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onclick="copyToClipboard('{{ b.url }}', this)" class="p-1.5 text-slate-400 hover:text-emerald-500 rounded-lg">
+                        <i data-lucide="copy" class="w-4 h-4"></i>
+                    </button>
+                    <button onclick="openEdit('{{ b.id }}', '{{ b.name }}', '{{ b.url }}')" class="p-1.5 text-slate-400 hover:text-blue-500 rounded-lg">
+                        <i data-lucide="edit-3" class="w-4 h-4"></i>
+                    </button>
+                    <a href="/delete/{{ b.id }}" onclick="return confirm('Delete?')" class="p-1.5 text-slate-400 hover:text-red-500 rounded-lg">
+                        <i data-lucide="trash-2" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <div id="noResults" class="hidden text-center py-20 text-slate-400">
+            <i data-lucide="search-x" class="w-10 h-10 mx-auto mb-3 opacity-20"></i>
+            <p class="text-sm">No matches found.</p>
+        </div>
+    </div>
+
+    <!-- Small Add Panel -->
+    <div id="add-panel" class="floating-panel fixed inset-y-0 right-0 w-80 glass shadow-2xl z-50 p-6 m-4 rounded-3xl border border-white/50">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold">Add Link</h2>
+            <button onclick="togglePanel('add-panel')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <form action="/add" method="POST" class="space-y-4">
+            <input type="text" name="name" placeholder="Display Name" required class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+            <input type="text" name="url" placeholder="URL" required class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:ring-2 focus:ring-blue-500">
+            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-sm shadow-lg shadow-blue-500/20">Save to Vault</button>
+        </form>
+    </div>
+
+    <!-- Small Edit Panel -->
+    <div id="edit-panel" class="floating-panel fixed inset-y-0 right-0 w-80 glass shadow-2xl z-50 p-6 m-4 rounded-3xl border border-white/50">
+        <div class="flex justify-between items-center mb-6">
+            <h2 class="text-lg font-bold">Edit Link</h2>
+            <button onclick="togglePanel('edit-panel')" class="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full"><i data-lucide="x" class="w-4 h-4"></i></button>
+        </div>
+        <form id="edit-form" method="POST" class="space-y-4">
+            <input type="text" id="edit-name" name="name" required class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
+            <input type="text" id="edit-url" name="url" required class="w-full px-4 py-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm">
+            <button type="submit" class="w-full bg-slate-900 dark:bg-blue-600 text-white py-3 rounded-xl font-bold text-sm">Update</button>
+        </form>
+    </div>
+
+    <script>
+        lucide.createIcons();
+
+        // --- DRAG LOGIC ---
+        const grid = document.getElementById('linksGrid');
+        new Sortable(grid, {
+            handle: '.drag-handle', // Drag handle selector within list items
+            animation: 200,
+            ghostClass: 'sortable-ghost',
+            onEnd: function (evt) {
+                console.log('Moved item from', evt.oldIndex, 'to', evt.newIndex);
+                // Note: If you want to persist the order, you'd send an array 
+                // of IDs to your server here via fetch('/reorder', { method: 'POST', ... })
+            },
+        });
+
+        // --- THEME LOGIC ---
+        function toggleDarkMode() {
+            const isDark = document.documentElement.classList.toggle('dark');
+            localStorage.setItem('darkMode', isDark);
+            updateIcon(isDark);
+        }
+
+        function updateIcon(isDark) {
+            const iconAttr = isDark ? 'sun' : 'moon';
+            const icon = document.getElementById('darkIcon');
+            if(icon) {
+                icon.setAttribute('data-lucide', iconAttr);
+                lucide.createIcons();
+            }
+        }
+
+        if (localStorage.getItem('darkMode') === 'true') {
+            document.documentElement.classList.add('dark');
+            updateIcon(true);
+        }
+
+        // --- UI UTILS ---
+        function filterLinks() {
+            const query = document.getElementById('searchInput').value.toLowerCase();
+            const items = document.querySelectorAll('.bookmark-item');
+            let count = 0;
+            items.forEach(item => {
+                const match = item.getAttribute('data-name').includes(query) || item.getAttribute('data-url').includes(query);
+                item.style.display = match ? 'flex' : 'none';
+                if(match) count++;
+            });
+            document.getElementById('noResults').style.display = count === 0 ? 'block' : 'none';
+        }
+
+        function togglePanel(id) {
+            document.getElementById(id).classList.toggle('open');
+        }
+
+        function openEdit(id, name, url) {
+            document.getElementById('edit-form').action = '/edit/' + id;
+            document.getElementById('edit-name').value = name;
+            document.getElementById('edit-url').value = url;
+            togglePanel('edit-panel');
+        }
+
+        async function copyToClipboard(text, btn) {
+            try {
+                await navigator.clipboard.writeText(text);
+                const original = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-500"></i>';
+                lucide.createIcons();
+                setTimeout(() => { btn.innerHTML = original; lucide.createIcons(); }, 1500);
+            } catch (err) { console.error(err); }
+        }
+    </script>
+</body>
+</html>
