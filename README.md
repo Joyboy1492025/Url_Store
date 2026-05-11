@@ -89,14 +89,6 @@ The application uses SQLite (`bookmarks.db`) which is automatically created when
 - URL (full web address)
 - Auto-incrementing ID
 
-## Favicon Integration
-
-The application automatically fetches favicons using Google's favicon service:
-```
-https://www.google.com/s2/favicons?sz=64&domain={domain}
-```
-
-This provides consistent 64x64 pixel favicons for all bookmarked sites.
 
 ## Customization
 
@@ -133,4 +125,6 @@ MIT License - feel free to use and modify for your own projects.
 
 ## Contributing
 
-Feel free to submit issues and enhancement requests!</content>
+Feel free to submit issues and enhancement requests! 
+
+</content>
